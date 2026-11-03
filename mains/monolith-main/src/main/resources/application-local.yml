@@ -1,0 +1,4 @@
+# 로컬 개발용 설정. 데이터베이스 연결은 P1에서 article-out-mysql을 추가할 때 넣는다.
+logging:
+  level:
+    com.example.blog: debug

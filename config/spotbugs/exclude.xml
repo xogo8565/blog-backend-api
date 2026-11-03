@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SpotBugs 제외 규칙. 항목을 추가할 때는 이유를 주석으로 남긴다. -->
+<FindBugsFilter>
+</FindBugsFilter>

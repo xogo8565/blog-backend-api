@@ -1,0 +1,28 @@
+# 버전은 이 파일에서만 관리한다. 애플리케이션 라이브러리 버전은 Spring Boot BOM을 따른다.
+[versions]
+java = "21"
+spring-boot = "4.1.2"
+spotless = "8.10.4"
+google-java-format = "1.37.0"
+spotbugs-plugin = "6.5.13"
+checkstyle = "14.3.0"
+jacoco = "0.8.16"
+
+[libraries]
+# buildSrc 컨벤션 플러그인이 쓰는 Gradle 플러그인
+spring-boot-gradle-plugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "spring-boot" }
+spotless-gradle-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+spotbugs-gradle-plugin = { module = "com.github.spotbugs.snom:spotbugs-gradle-plugin", version.ref = "spotbugs-plugin" }
+
+# BOM
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+
+# 애플리케이션
+spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+
+# 테스트
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core" }

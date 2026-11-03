@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: blog-backend
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+blog:
+  id:
+    # 인스턴스마다 다른 값(0~15)을 준다. 지금은 인스턴스가 하나라 0이다.
+    worker-id: ${BLOG_ID_WORKER_ID:0}
