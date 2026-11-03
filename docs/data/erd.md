@@ -12,12 +12,15 @@ erDiagram
     ARTICLE ||--o| ARTICLE_PUBLISHED : "has public snapshot"
     ARTICLE ||--o{ ARTICLE_TAG : "tagged as"
     TAG ||--o{ ARTICLE_TAG : "attached to"
+    CATEGORY |o--o{ ARTICLE : "classifies"
+    CATEGORY |o--o{ CATEGORY : "parent of"
 ```
 
 - `ARTICLE`은 상태와 낙관적 잠금 버전을 가진다.
 - `ARTICLE_DRAFT`는 현재 편집본이고 `ARTICLE_PUBLISHED`는 마지막 발행본이다. 발행 전에는 발행본이 없다.
 - `ARTICLE_TAG`는 글과 태그의 연결이다. 태그 목록 순서가 제품 계약에 포함되지 않아 순서 컬럼은 아직 정하지 않았다.
 - 공개 요약은 OpenAPI 설명대로 발행 Markdown에서 HTML/문법을 걷고 앞 160자를 계산하는 파생 값으로 둔다. 저장 컬럼 여부는 정하지 않았다.
+- `CATEGORY`(설계 초안)는 상위·하위 2단계 자기 참조 트리다. 글은 카테고리 하나에 속하거나 미분류다. OpenAPI 계약만 있고 마이그레이션은 없다.
 
 ## 댓글 (`blog_comment`)
 
@@ -60,7 +63,8 @@ erDiagram
 
 | API 모델                          | 논리 데이터                                                       |
 | --------------------------------- | ----------------------------------------------------------------- |
-| `ArticleSummary`, `ArticleDetail` | `ARTICLE`, `ARTICLE_PUBLISHED`, `ARTICLE_TAG`, `TAG` 조회 결과    |
+| `ArticleSummary`, `ArticleDetail` | `ARTICLE`, `ARTICLE_PUBLISHED`, `ARTICLE_TAG`, `TAG`, `CATEGORY` 조회 결과 |
+| `CategoryNode`, `AdminCategory`   | `CATEGORY` 트리와 카테고리별 글 수 집계                           |
 | `AdminArticle`                    | `ARTICLE`, `ARTICLE_DRAFT`, 선택적 `ARTICLE_PUBLISHED`, 태그 연결 |
 | `Comment`                         | `COMMENT` 계층과 Auth ACL에서 조회한 공개 작성자 정보             |
 | `Me`, `Author`                    | `USER_ACCOUNT`의 역할에 맞춘 공개 필드                            |

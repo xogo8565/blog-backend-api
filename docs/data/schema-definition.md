@@ -21,6 +21,7 @@
 | `id`         | `BIGINT`      | 아니오 | PK, Snowflake                   | 글 식별자             |
 | `status`     | `VARCHAR(16)` | 아니오 | `DRAFT`, `PUBLISHED`, `DELETED` | 현재 글 상태          |
 | `version`    | `BIGINT`      | 아니오 | 0 이상                          | 초안 낙관적 잠금 버전 |
+| `category_id` | `BIGINT`     | 예     | 같은 스키마 FK → `category.id`  | 카테고리, 미분류면 NULL (설계 초안) |
 | `created_at` | `DATETIME(6)` | 아니오 | UTC                             | 생성 시각             |
 | `updated_at` | `DATETIME(6)` | 아니오 | UTC                             | 마지막 관리 변경 시각 |
 
@@ -58,6 +59,22 @@
 | `tag.name`               | `VARCHAR(30)` | 아니오 | API 1~30자                 | 태그 이름 |
 | `article_tag.article_id` | `BIGINT`      | 아니오 | PK 일부, FK → `article.id` | 글 ID     |
 | `article_tag.tag_id`     | `BIGINT`      | 아니오 | PK 일부, FK → `tag.id`     | 태그 ID   |
+
+### `category` (설계 초안)
+
+OpenAPI 계약(`CategoryNode`, `AdminCategory`)만 있고 마이그레이션은 없다.
+
+| 컬럼          | 제안 타입      | NULL   | 키/규칙                                   | 의미                         |
+| ------------- | -------------- | ------ | ----------------------------------------- | ---------------------------- |
+| `id`          | `BIGINT`       | 아니오 | PK, Snowflake                             | 카테고리 ID                  |
+| `parent_id`   | `BIGINT`       | 예     | 같은 스키마 FK → `category.id`, 2단계까지 | 상위 카테고리, 최상위면 NULL |
+| `name`        | `VARCHAR(30)`  | 아니오 | API 1~30자                                | 표시 이름                    |
+| `slug`        | `VARCHAR(40)`  | 아니오 | UNIQUE, `^[a-z0-9]+(-[a-z0-9]+)*$`        | 주소 식별자                  |
+| `description` | `VARCHAR(200)` | 예     | API 최대 200자                            | 설명                         |
+| `position`    | `INT`          | 아니오 | 같은 부모 안에서 0부터                    | 메뉴 순서                    |
+| `visible`     | `BOOLEAN`      | 아니오 | 기본 TRUE                                 | 공개 트리 노출 여부          |
+
+2단계 제한과 "하위·글이 있으면 삭제 금지"는 도메인 규칙으로 검사한다. 글 수는 저장하지 않고 조회 시 집계한다.
 
 글과 태그는 다대다다. 태그 전체 교체 시 없는 이름을 생성한다. 같은 이름의 중복 허용 여부, 대소문자·공백 정규화, DB collation 아래의 UNIQUE 의미는 제품 규칙으로 확정한다. 공개 정렬은 발행일 기준이므로 인덱스 계획에 `article_tag`로 나열 순서를 보존하지 않는다.
 
@@ -145,6 +162,8 @@ provider의 정확한 최대 길이는 연동 제공자가 늘어날 때 확정�
 | `article_published` | `(published_at, article_id)`                               | 최신 발행 글 조회/커서                                       |
 | `article_published` | FULLTEXT `(title, contents)` WITH PARSER `ngram`           | 한글 검색 결정(ADR 0002); MySQL 환경에서 migration 검증 필요 |
 | `tag`               | UNIQUE `(name)`                                            | 이름 정규화 결정 후 확정                                     |
+| `category`          | UNIQUE `(slug)`, `(parent_id, position)`                   | 슬러그 조회, 메뉴 순서 (설계 초안)                           |
+| `article`           | `(category_id, status)`                                    | 카테고리별 글 목록·삭제 전 글 확인 (설계 초안)               |
 | `article_tag`       | PK `(article_id, tag_id)`, 보조 `(tag_id, article_id)`     | 중복 연결 방지, 태그별 글 찾기                               |
 | `comment`           | `(article_id, parent_id, created_at, id)`                  | 공개 댓글 목록과 답글 조회                                   |
 | `comment`           | `(author_id, created_at)`                                  | 내 댓글/삭제 권한 조회 지원                                  |
@@ -157,6 +176,7 @@ provider의 정확한 최대 길이는 연동 제공자가 늘어날 때 확정�
 
 - 실제 테이블·컬럼 이름, 시간 저장 타입/세션 시간대, API의 `updatedAt` 의미
 - 태그 이름의 대소문자·공백 정규화와 UNIQUE 범위
+- 카테고리 삭제 시 글 이동(`moveTo`)의 대량 갱신 방식, 슬러그 변경 시 이전 주소 리다이렉트 여부
 - `HIDDEN` 댓글 상태와 삭제 댓글 행 보존 정책
 - 최초 ADMIN 부여, 사용자 email/nickname 최대 길이 및 정규화
 - refresh token 만료 수명, 회전 계열 추적, 해시·보존·정리 정책
