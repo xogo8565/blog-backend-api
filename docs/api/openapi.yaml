@@ -23,10 +23,14 @@ tags:
     description: 공개 게시글 조회
   - name: Tags
     description: 태그 조회
+  - name: Categories
+    description: 공개 카테고리 조회
   - name: Comments
     description: 댓글
   - name: Admin Articles
     description: 관리자 게시글 관리 (ADMIN)
+  - name: Admin Categories
+    description: 관리자 카테고리 관리 (ADMIN)
   - name: Media
     description: 이미지 업로드 (ADMIN)
   - name: Auth
@@ -49,6 +53,11 @@ paths:
             type: string
             minLength: 1
             maxLength: 30
+        - name: category
+          in: query
+          description: 카테고리 슬러그로 거르기. 상위 카테고리면 하위 카테고리의 글을 포함합니다. tag와 함께 보내면 둘 다 만족하는 글만 돌려줍니다
+          schema:
+            $ref: '#/components/schemas/CategorySlug'
       responses:
         '200':
           description: 글 목록
@@ -137,6 +146,35 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TagCount'
+
+  /categories:
+    get:
+      tags: [Categories]
+      operationId: getCategoryTree
+      summary: 공개 카테고리 트리
+      description: 공개(visible) 카테고리만 관리자 순서대로 돌려줍니다. 상위 카테고리의 articleCount는 하위 카테고리의 발행 글을 포함합니다.
+      responses:
+        '200':
+          description: 상위 카테고리 목록과 각 하위 카테고리
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryNode'
+              example:
+                - id: 371230000000101
+                  name: 백엔드
+                  slug: backend
+                  description: Spring과 서버 아키텍처에서 내린 결정을 기록합니다.
+                  articleCount: 5
+                  children:
+                    - id: 371230000000102
+                      name: 아키텍처
+                      slug: architecture
+                      description: null
+                      articleCount: 3
+                      children: []
 
   /articles/{articleId}/comments:
     get:
@@ -455,6 +493,204 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
 
+  /admin/articles/{articleId}/category:
+    put:
+      tags: [Admin Articles]
+      operationId: replaceArticleCategory
+      summary: 글 카테고리 지정
+      description: 글을 카테고리 하나에 넣거나 categoryId null로 미분류로 돌립니다. 없는 카테고리면 404 CATEGORY_NOT_FOUND입니다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleCategoryUpdateRequest'
+            example:
+              categoryId: 371230000000102
+      responses:
+        '200':
+          description: 카테고리가 바뀐 글
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminArticle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/categories:
+    get:
+      tags: [Admin Categories]
+      operationId: listAdminCategories
+      summary: 전체 카테고리 목록 (숨김 포함)
+      description: 상위 카테고리 순서대로, 각 상위 카테고리 바로 뒤에 그 하위 카테고리를 순서대로 담은 평면 목록입니다.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 카테고리 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminCategory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Admin Categories]
+      operationId: createCategory
+      summary: 카테고리 생성
+      description: 같은 부모 안에서 맨 뒤 순서로 만듭니다. 하위 카테고리의 부모로 지정하면 409 CATEGORY_DEPTH_EXCEEDED입니다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpsertRequest'
+            example:
+              name: 아키텍처
+              slug: architecture
+              description: 모듈 경계와 API 계약을 정하는 결정을 기록합니다.
+              parentId: 371230000000101
+              visible: true
+      responses:
+        '201':
+          description: 생성된 카테고리
+          headers:
+            Location:
+              description: 생성된 카테고리의 관리자 경로
+              schema:
+                type: string
+              example: /api/v1/admin/categories/371230000000102
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /admin/categories/order:
+    put:
+      tags: [Admin Categories]
+      operationId: reorderCategories
+      summary: 같은 부모 안의 순서 교체
+      description: parentId 아래 카테고리 전체를 보낸 순서로 바꿉니다. 목록이 현재 형제와 정확히 같지 않으면 400 VALIDATION_FAILED입니다.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryOrderRequest'
+            example:
+              parentId: null
+              categoryIds: [371230000000104, 371230000000101]
+      responses:
+        '200':
+          description: 순서가 반영된 전체 카테고리 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /admin/categories/{categoryId}:
+    put:
+      tags: [Admin Categories]
+      operationId: updateCategory
+      summary: 카테고리 수정
+      description: 이름, 슬러그, 설명, 부모, 공개 여부를 바꿉니다. 하위 카테고리가 있는 카테고리를 다른 카테고리 아래로 옮기면 409 CATEGORY_DEPTH_EXCEEDED입니다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpsertRequest'
+      responses:
+        '200':
+          description: 수정된 카테고리
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Admin Categories]
+      operationId: deleteCategory
+      summary: 카테고리 삭제
+      description: |
+        하위 카테고리가 있으면 삭제하지 않고 409 CATEGORY_NOT_EMPTY로 응답합니다.
+        글(상태 무관)이 있으면 moveTo로 옮길 카테고리를 보내야 하며, 없으면 409 CATEGORY_NOT_EMPTY입니다.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+        - name: moveTo
+          in: query
+          description: 글을 옮길 카테고리 ID. 하위 카테고리가 없는 카테고리여야 합니다
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '204':
+          description: 삭제됨
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /admin/media/upload-urls:
     post:
       tags: [Media]
@@ -664,6 +900,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Id'
+    CategoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
 
   headers:
     RefreshCookie:
@@ -708,13 +950,13 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
     NotFound:
-      description: 대상 없음 (ARTICLE_NOT_FOUND, COMMENT_NOT_FOUND, MEDIA_NOT_FOUND)
+      description: 대상 없음 (ARTICLE_NOT_FOUND, COMMENT_NOT_FOUND, MEDIA_NOT_FOUND, CATEGORY_NOT_FOUND)
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
     Conflict:
-      description: 도메인 규칙 위반 (ARTICLE_NOT_PUBLISHABLE, INVALID_STATE_TRANSITION, ARTICLE_VERSION_CONFLICT, ARTICLE_DELETED, COMMENT_DEPTH_EXCEEDED, MEDIA_NOT_UPLOADED)
+      description: 도메인 규칙 위반 (ARTICLE_NOT_PUBLISHABLE, INVALID_STATE_TRANSITION, ARTICLE_VERSION_CONFLICT, ARTICLE_DELETED, COMMENT_DEPTH_EXCEEDED, MEDIA_NOT_UPLOADED, CATEGORY_SLUG_DUPLICATED, CATEGORY_NOT_EMPTY, CATEGORY_DEPTH_EXCEEDED)
       content:
         application/problem+json:
           schema:
@@ -774,9 +1016,142 @@ components:
           minimum: 0
           description: 이 태그가 붙은 발행 글 수
 
+    CategorySlug:
+      type: string
+      minLength: 1
+      maxLength: 40
+      pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+      description: 주소에 쓰는 식별자. 영문 소문자, 숫자, 하이픈
+      examples: [architecture]
+
+    CategoryRef:
+      type: object
+      required: [id, name, slug]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        slug:
+          $ref: '#/components/schemas/CategorySlug'
+
+    CategoryPath:
+      type: object
+      required: [id, name, slug, parent]
+      description: 글이 속한 카테고리와 그 상위 카테고리
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        slug:
+          $ref: '#/components/schemas/CategorySlug'
+        parent:
+          description: 상위 카테고리에 바로 속한 글이면 null
+          anyOf:
+            - $ref: '#/components/schemas/CategoryRef'
+            - type: 'null'
+
+    CategoryNode:
+      type: object
+      required: [id, name, slug, description, articleCount, children]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        slug:
+          $ref: '#/components/schemas/CategorySlug'
+        description:
+          type: [string, 'null']
+        articleCount:
+          type: integer
+          minimum: 0
+          description: 발행 글 수. 상위 카테고리는 하위 카테고리의 글을 포함합니다
+        children:
+          type: array
+          description: 하위 카테고리. 카테고리는 2단계까지이므로 하위 카테고리의 children은 항상 []입니다
+          items:
+            $ref: '#/components/schemas/CategoryNode'
+
+    AdminCategory:
+      type: object
+      required: [id, name, slug, description, parentId, visible, position, articleCount]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        name:
+          type: string
+        slug:
+          $ref: '#/components/schemas/CategorySlug'
+        description:
+          type: [string, 'null']
+        parentId:
+          description: 상위 카테고리면 null
+          anyOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        visible:
+          type: boolean
+          description: false면 공개 트리와 메뉴에서 숨깁니다. 글 상세의 카테고리 표시는 유지됩니다
+        position:
+          type: integer
+          minimum: 0
+          description: 같은 부모 안의 순서 (0부터)
+        articleCount:
+          type: integer
+          minimum: 0
+          description: 이 카테고리에 바로 속한 글 수 (상태 무관)
+
+    CategoryUpsertRequest:
+      type: object
+      required: [name, slug, description, parentId, visible]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 30
+        slug:
+          $ref: '#/components/schemas/CategorySlug'
+        description:
+          type: [string, 'null']
+          maxLength: 200
+        parentId:
+          description: 상위 카테고리로 만들려면 null
+          anyOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        visible:
+          type: boolean
+
+    CategoryOrderRequest:
+      type: object
+      required: [parentId, categoryIds]
+      properties:
+        parentId:
+          description: 상위 카테고리끼리의 순서면 null
+          anyOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        categoryIds:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Id'
+
+    ArticleCategoryUpdateRequest:
+      type: object
+      required: [categoryId]
+      properties:
+        categoryId:
+          description: 미분류로 돌리려면 null
+          anyOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+
     ArticleSummary:
       type: object
-      required: [id, title, summary, thumbnailUrl, tags, publishedAt]
+      required: [id, title, summary, thumbnailUrl, tags, category, publishedAt]
       properties:
         id:
           $ref: '#/components/schemas/Id'
@@ -792,6 +1167,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TagRef'
+        category:
+          description: 미분류 글이면 null
+          anyOf:
+            - $ref: '#/components/schemas/CategoryPath'
+            - type: 'null'
         publishedAt:
           type: string
           format: date-time
@@ -809,7 +1189,7 @@ components:
 
     ArticleDetail:
       type: object
-      required: [id, title, contents, thumbnailUrl, tags, publishedAt, updatedAt]
+      required: [id, title, contents, thumbnailUrl, tags, category, publishedAt, updatedAt]
       properties:
         id:
           $ref: '#/components/schemas/Id'
@@ -825,6 +1205,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TagRef'
+        category:
+          description: 미분류 글이면 null
+          anyOf:
+            - $ref: '#/components/schemas/CategoryPath'
+            - type: 'null'
         publishedAt:
           type: string
           format: date-time
@@ -877,7 +1262,7 @@ components:
 
     AdminArticle:
       type: object
-      required: [id, status, draft, published, tags, version, publishedAt, updatedAt]
+      required: [id, status, draft, published, tags, category, version, publishedAt, updatedAt]
       properties:
         id:
           $ref: '#/components/schemas/Id'
@@ -894,6 +1279,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/TagRef'
+        category:
+          description: 미분류 글이면 null
+          anyOf:
+            - $ref: '#/components/schemas/CategoryPath'
+            - type: 'null'
         version:
           type: integer
           minimum: 0
@@ -1094,12 +1484,16 @@ components:
         - ARTICLE_NOT_FOUND
         - COMMENT_NOT_FOUND
         - MEDIA_NOT_FOUND
+        - CATEGORY_NOT_FOUND
         - ARTICLE_NOT_PUBLISHABLE
         - INVALID_STATE_TRANSITION
         - ARTICLE_VERSION_CONFLICT
         - ARTICLE_DELETED
         - COMMENT_DEPTH_EXCEEDED
         - MEDIA_NOT_UPLOADED
+        - CATEGORY_SLUG_DUPLICATED
+        - CATEGORY_NOT_EMPTY
+        - CATEGORY_DEPTH_EXCEEDED
         - RATE_LIMITED
         - INTERNAL_ERROR
 

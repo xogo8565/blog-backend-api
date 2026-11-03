@@ -19,12 +19,16 @@ public enum ErrorCode {
   ARTICLE_NOT_FOUND(Category.NOT_FOUND, "글을 찾을 수 없습니다."),
   COMMENT_NOT_FOUND(Category.NOT_FOUND, "댓글을 찾을 수 없습니다."),
   MEDIA_NOT_FOUND(Category.NOT_FOUND, "이미지를 찾을 수 없습니다."),
+  CATEGORY_NOT_FOUND(Category.NOT_FOUND, "카테고리를 찾을 수 없습니다."),
   ARTICLE_NOT_PUBLISHABLE(Category.CONFLICT, "제목과 본문을 입력해야 발행할 수 있습니다."),
   INVALID_STATE_TRANSITION(Category.CONFLICT, "현재 상태에서는 할 수 없는 작업입니다."),
   ARTICLE_VERSION_CONFLICT(Category.CONFLICT, "초안이 다른 곳에서 먼저 저장되었습니다."),
   ARTICLE_DELETED(Category.CONFLICT, "삭제된 글은 수정할 수 없습니다."),
   COMMENT_DEPTH_EXCEEDED(Category.CONFLICT, "대댓글에는 답글을 달 수 없습니다."),
   MEDIA_NOT_UPLOADED(Category.CONFLICT, "업로드된 파일을 찾을 수 없습니다."),
+  CATEGORY_SLUG_DUPLICATED(Category.CONFLICT, "이미 쓰고 있는 카테고리 슬러그입니다."),
+  CATEGORY_NOT_EMPTY(Category.CONFLICT, "하위 카테고리나 글이 있는 카테고리는 삭제할 수 없습니다."),
+  CATEGORY_DEPTH_EXCEEDED(Category.CONFLICT, "카테고리는 2단계까지만 만들 수 있습니다."),
   RATE_LIMITED(Category.RATE_LIMITED, "잠시 후 다시 시도해 주세요."),
   INTERNAL_ERROR(Category.INTERNAL, "잠시 후 다시 시도해 주세요.");
 

@@ -29,6 +29,7 @@
 | 글 | `GET /articles/search` | 공개 | 제목·본문 검색, `q` 2~50자 |
 | 글 | `GET /articles/{articleId}` | 공개 | 발행 글 상세. DRAFT·DELETED는 404 |
 | 태그 | `GET /tags/top` | 공개 | 발행 글 수 기준 인기 태그 |
+| 카테고리 | `GET /categories` | 공개 | 공개 카테고리 2단계 트리와 발행 글 수 |
 | 댓글 | `GET /articles/{articleId}/comments` | 공개 | 글 댓글 목록 |
 | 댓글 | `POST /articles/{articleId}/comments` | Bearer | 댓글 또는 한 단계 답글 작성 |
 | 댓글 | `DELETE /comments/{commentId}` | Bearer | 작성자 또는 ADMIN 삭제 |
@@ -41,6 +42,12 @@
 | 관리자 글 | `POST /admin/articles/{articleId}/unpublish` | ADMIN | 발행 취소 |
 | 관리자 글 | `POST /admin/articles/{articleId}/restore` | ADMIN | 삭제 복구 |
 | 태그 | `PUT /admin/articles/{articleId}/tags` | ADMIN | 태그 전체 교체, 최대 10개 |
+| 관리자 글 | `PUT /admin/articles/{articleId}/category` | ADMIN | 글 카테고리 지정, `null`이면 미분류 |
+| 관리자 카테고리 | `GET /admin/categories` | ADMIN | 숨김 포함 전체 목록(부모 순서 → 하위 순서) |
+| 관리자 카테고리 | `POST /admin/categories` | ADMIN | 생성, 같은 부모의 맨 뒤 |
+| 관리자 카테고리 | `PUT /admin/categories/order` | ADMIN | 같은 부모 안의 순서 교체 |
+| 관리자 카테고리 | `PUT /admin/categories/{categoryId}` | ADMIN | 이름·슬러그·설명·부모·공개 여부 수정 |
+| 관리자 카테고리 | `DELETE /admin/categories/{categoryId}` | ADMIN | 삭제, 글이 있으면 `moveTo` 필요 |
 | 미디어 | `POST /admin/media/upload-urls` | ADMIN | presigned 업로드 URL 발급 |
 | 미디어 | `POST /admin/media/{mediaId}/confirm` | ADMIN | 업로드 크기·객체 확인 |
 | 인증 | `GET /oauth2/authorization/google` | 공개 | Google 로그인 시작. API base path 밖 |
@@ -61,6 +68,7 @@
 
 - **Article:** `DRAFT`, `PUBLISHED`, `DELETED`. 공개 API는 `PUBLISHED`만 반환한다. 초안 저장은 `version` 불일치 시 409 `ARTICLE_VERSION_CONFLICT`다.
 - **Tags:** 이름은 1~30자, 글당 최대 10개, 중복 없는 배열이다.
+- **Categories:** 상위·하위 2단계다. 하위 아래에 다시 만들거나 하위가 있는 카테고리를 다른 카테고리 아래로 옮기면 409 `CATEGORY_DEPTH_EXCEEDED`다. 이름 1~30자, 슬러그는 `^[a-z0-9]+(-[a-z0-9]+)*$` 1~40자이며 전체에서 유일하다(중복은 409 `CATEGORY_SLUG_DUPLICATED`). 글은 카테고리 하나에 속하거나 미분류(`null`)다. 하위가 있거나 글이 있는데 `moveTo`가 없으면 삭제는 409 `CATEGORY_NOT_EMPTY`다. 숨김(`visible=false`) 카테고리는 공개 트리에서 빠지지만 글 응답의 `category`는 유지한다. `GET /articles?category=`에 상위 슬러그를 주면 하위 카테고리 글을 포함한다.
 - **Comments:** 공개 목록은 최상위 댓글을 작성순으로 반환하고 replies에 한 단계 답글을 담는다. 더 깊은 답글은 `COMMENT_DEPTH_EXCEEDED`다. 대댓글이 있는 댓글 삭제는 DELETED 상태로 자리를 보존한다.
 - **Media:** 파일은 PNG, JPEG, GIF, WebP만 허용하고 최대 10MB다. presigned URL은 10분 유효하다. 업로드 후 confirm을 거쳐야 사용할 수 있다.
 - **Search:** 제목과 본문을 한글 ngram 기준으로 검색하며 관련도 대신 `publishedAt` 내림차순으로 반환한다.
@@ -72,8 +80,8 @@
 | 필드 검증 오류 | 400 | `VALIDATION_FAILED` |
 | 커서·검색어 오류 | 400 | `INVALID_CURSOR`, `INVALID_SEARCH_QUERY` |
 | 비로그인 / 권한 없음 | 401 / 403 | `UNAUTHENTICATED`, `FORBIDDEN` |
-| 공개되지 않은 글·없는 리소스 | 404 | `ARTICLE_NOT_FOUND`, `COMMENT_NOT_FOUND`, `MEDIA_NOT_FOUND` |
-| 도메인 상태·버전 충돌 | 409 | `INVALID_STATE_TRANSITION`, `ARTICLE_VERSION_CONFLICT` |
+| 공개되지 않은 글·없는 리소스 | 404 | `ARTICLE_NOT_FOUND`, `COMMENT_NOT_FOUND`, `MEDIA_NOT_FOUND`, `CATEGORY_NOT_FOUND` |
+| 도메인 상태·버전 충돌 | 409 | `INVALID_STATE_TRANSITION`, `ARTICLE_VERSION_CONFLICT`, `CATEGORY_SLUG_DUPLICATED`, `CATEGORY_NOT_EMPTY`, `CATEGORY_DEPTH_EXCEEDED` |
 | 요청 제한 | 429 | `RATE_LIMITED` |
 | 서버 오류 | 500 | `INTERNAL_ERROR` |
 
