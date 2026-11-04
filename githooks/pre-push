@@ -1,0 +1,6 @@
+#!/bin/sh
+# push 전에 단위 테스트를 돌린다. 설치: git config core.hooksPath githooks
+if ! ./gradlew unitTest --quiet; then
+  echo "단위 테스트가 실패했습니다. 고친 뒤 다시 push 하세요."
+  exit 1
+fi
